@@ -18,11 +18,50 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-const TICK_MS: u64 = 10;
+// 30 Hz tick. The Slint `animate` blocks on the gauges interpolate between
+// frames, so a slower data feed still looks smooth, while keeping CPU low
+// enough for an ESP32-class target driving a TFT.
+const TICK_MS: u64 = 33;
 const TICK_DT: f32 = TICK_MS as f32 / 1000.0;
 
-// Startup animation states
-const STARTUP_TICKS: i32 = 80; // Total ticks for startup sequence (800ms)
+// Startup animation duration in wall-clock ms, converted to ticks at runtime.
+const STARTUP_DURATION_MS: u64 = 800;
+const STARTUP_TICKS: i32 = (STARTUP_DURATION_MS / TICK_MS) as i32;
+
+#[derive(Default)]
+struct LastPushed {
+    speed: f32,
+    rpm: f32,
+    fuel: f32,
+    temp: f32,
+    left: bool,
+    right: bool,
+    beam: bool,
+    night: bool,
+    shadow: bool,
+    gear: i32,
+    trip_km: f32,
+    avg: f32,
+    trip_secs: i32,
+    overheat: bool,
+    low_fuel: bool,
+    overspeed: bool,
+    oil: f32,
+    volt: f32,
+    afr: f32,
+    fuel_cons: f32,
+    initialized: bool,
+}
+
+// Operating defaults for the small gauges. The simulator does not model these;
+// they sit at a static healthy reading after the startup sweep finishes.
+const OIL_OPERATING: f32 = 45.0;   // psi
+const VOLT_OPERATING: f32 = 13.8;  // V (alternator charging)
+const AFR_OPERATING: f32 = 14.7;   // stoichiometric
+
+const OIL_MAX: f32 = 100.0;
+const VOLT_MAX: f32 = 16.0;
+const AFR_MAX: f32 = 30.0;
 
 struct AppState {
     source: Box<dyn DataSource>,
@@ -37,6 +76,7 @@ struct AppState {
     // Startup override values
     startup_speed_override: Option<f32>,
     startup_rpm_override: Option<f32>,
+    last: LastPushed,
 }
 
 impl AppState {
@@ -53,6 +93,7 @@ impl AppState {
             startup_tick: 0,
             startup_speed_override: Some(0.0),
             startup_rpm_override: Some(0.0),
+            last: LastPushed::default(),
         }
     }
 
@@ -150,6 +191,31 @@ fn main() -> Result<()> {
                 // Update startup animation
                 st.update_startup();
 
+                // Small-gauge values: sweep up → hold → wind down to operating
+                // value, mirroring the speed/rpm needle-test on real cars.
+                let (oil, volt, afr) = if st.is_startup() {
+                    let progress = st.startup_tick as f32 / STARTUP_TICKS as f32;
+                    let lerp_to_op = |max: f32, op: f32| -> f32 {
+                        if progress < 0.4 {
+                            (progress / 0.4) * max
+                        } else if progress < 0.5 {
+                            max
+                        } else if progress < 0.8 {
+                            let p = (progress - 0.5) / 0.3;
+                            (1.0 - p) * max + p * op
+                        } else {
+                            op
+                        }
+                    };
+                    (
+                        lerp_to_op(OIL_MAX, OIL_OPERATING),
+                        lerp_to_op(VOLT_MAX, VOLT_OPERATING),
+                        lerp_to_op(AFR_MAX, AFR_OPERATING),
+                    )
+                } else {
+                    (OIL_OPERATING, VOLT_OPERATING, AFR_OPERATING)
+                };
+
                 let (speed, rpm, fuel, temp, left, right, beam, gear) = if st.is_startup() {
                     // During startup: use override values
                     let speed = st.startup_speed_override.unwrap_or(0.0);
@@ -183,22 +249,53 @@ fn main() -> Result<()> {
                 let night = st.night_mode;
                 let shadow = st.show_drop_shadow;
 
-                dash.set_speed(speed);
-                dash.set_rpm(rpm);
-                dash.set_fuel(fuel);
-                dash.set_coolant_temp(temp);
-                dash.set_left_turn(left);
-                dash.set_right_turn(right);
-                dash.set_high_beam(beam);
-                dash.set_night_mode(night);
-                dash.set_show_drop_shadow(shadow);
-                dash.set_gear(gear);
-                dash.set_trip_distance(trip_km);
-                dash.set_avg_speed(avg);
-                dash.set_trip_time_secs(trip_secs);
-                dash.set_overheat_warning(temp > 110.0);
-                dash.set_low_fuel_warning(fuel < 10.0);
-                dash.set_overspeed_warning(speed > 120.0);
+                // Only push properties that have actually changed. Slint
+                // re-renders on every property write, so deduping here keeps
+                // the dirty region small when values are stable (idle, paused).
+                // Quantize floats so sub-noise jitter doesn't trigger repaints.
+                let q = |v: f32, step: f32| (v / step).round() * step;
+                let speed_q = q(speed, 0.1);
+                let rpm_q = q(rpm, 1.0);
+                let fuel_q = q(fuel, 0.1);
+                let temp_q = q(temp, 0.1);
+                let trip_km_q = q(trip_km, 0.01);
+                let avg_q = q(avg, 0.1);
+                let oil_q = q(oil, 0.5);
+                let volt_q = q(volt, 0.05);
+                let afr_q = q(afr, 0.1);
+                // Rough instantaneous consumption in L/100km, derived from RPM:
+                // l_per_h ≈ rpm * 0.0008 (≈0.6 L/h idle, ~7 L/h at redline).
+                // Below 5 km/h treat the engine as idling and report 0 to
+                // avoid divide-by-zero blow-up.
+                let l_per_h = rpm * 0.0008;
+                let fuel_cons = if speed > 5.0 { l_per_h / speed * 100.0 } else { 0.0 };
+                let fuel_cons_q = q(fuel_cons.min(99.9), 0.1);
+                let overheat = temp > 110.0;
+                let low_fuel = fuel < 10.0;
+                let overspeed = speed > 120.0;
+                let l = &mut st.last;
+                let init = !l.initialized;
+                if init || l.speed != speed_q { dash.set_speed(speed_q); l.speed = speed_q; }
+                if init || l.rpm != rpm_q { dash.set_rpm(rpm_q); l.rpm = rpm_q; }
+                if init || l.fuel != fuel_q { dash.set_fuel(fuel_q); l.fuel = fuel_q; }
+                if init || l.temp != temp_q { dash.set_coolant_temp(temp_q); l.temp = temp_q; }
+                if init || l.left != left { dash.set_left_turn(left); l.left = left; }
+                if init || l.right != right { dash.set_right_turn(right); l.right = right; }
+                if init || l.beam != beam { dash.set_high_beam(beam); l.beam = beam; }
+                if init || l.night != night { dash.set_night_mode(night); l.night = night; }
+                if init || l.shadow != shadow { dash.set_show_drop_shadow(shadow); l.shadow = shadow; }
+                if init || l.gear != gear { dash.set_gear(gear); l.gear = gear; }
+                if init || l.trip_km != trip_km_q { dash.set_trip_distance(trip_km_q); l.trip_km = trip_km_q; }
+                if init || l.avg != avg_q { dash.set_avg_speed(avg_q); l.avg = avg_q; }
+                if init || l.trip_secs != trip_secs { dash.set_trip_time_secs(trip_secs); l.trip_secs = trip_secs; }
+                if init || l.overheat != overheat { dash.set_overheat_warning(overheat); l.overheat = overheat; }
+                if init || l.low_fuel != low_fuel { dash.set_low_fuel_warning(low_fuel); l.low_fuel = low_fuel; }
+                if init || l.overspeed != overspeed { dash.set_overspeed_warning(overspeed); l.overspeed = overspeed; }
+                if init || l.oil != oil_q { dash.set_oil_pressure(oil_q); l.oil = oil_q; }
+                if init || l.volt != volt_q { dash.set_voltage(volt_q); l.volt = volt_q; }
+                if init || l.afr != afr_q { dash.set_afr(afr_q); l.afr = afr_q; }
+                if init || l.fuel_cons != fuel_cons_q { dash.set_fuel_consumption(fuel_cons_q); l.fuel_cons = fuel_cons_q; }
+                l.initialized = true;
 
                 if st.last_log.elapsed() >= Duration::from_secs(1) {
                     let ts = Local::now().format("%H:%M:%S");

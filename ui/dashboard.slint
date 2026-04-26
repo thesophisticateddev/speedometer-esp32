@@ -29,6 +29,7 @@ export component Dashboard inherits Window {
     in-out property <float> trip-distance: 0;
     in-out property <float> avg-speed: 0;
     in-out property <int> trip-time-secs: 0;
+    in-out property <float> fuel-consumption: 0;  // L/100km
 
     // Additional gauges for oil pressure, voltage, and air-fuel ratio
     in-out property <float> oil-pressure: 0;      // 0-100 psi
@@ -213,6 +214,7 @@ export component Dashboard inherits Window {
                             trip-distance: root.trip-distance;
                             avg-speed: root.avg-speed;
                             trip-time-secs: root.trip-time-secs;
+                            fuel-consumption: root.fuel-consumption;
                         }
 
                         // Vertical stack of small gauges between speedometer and RPM

@@ -31,6 +31,9 @@ component TickLabel inherits Rectangle {
     in property <string> label-text;
     in property <angle> position-angle;
     in property <color> label-color: #b2c7d8;
+    // Distance from gauge center to label baseline. Default fits the 280px
+    // big gauges; smaller gauges pass a smaller value.
+    in property <length> label-radius: 108px;
     width: 0;
     height: 0;
 
@@ -44,7 +47,7 @@ component TickLabel inherits Rectangle {
         height: 0;
         transform-rotation: position-angle;
         Rectangle {
-            y: 108px;
+            y: label-radius;
             x: -16px;
             width: 32px;
             height: 18px;
@@ -242,8 +245,8 @@ export component GaugeSmall inherits Rectangle {
     property <color> tick-color: night-mode ? #2a2218 : #47505b;
     property <color> tick-bright: night-mode ? #553300 : #b2c7d8;
 
-    width: 112px;
-    height: 112px;
+    width: 88px;
+    height: 88px;
     background: transparent;
 
     property <float> clamped: max(0, min(value, max-value));
@@ -260,11 +263,11 @@ export component GaugeSmall inherits Rectangle {
     property <angle> stop4: 360deg;
 
     Rectangle {
-        x: parent.width / 2 - 56px;
-        y: parent.height / 2 - 56px;
-        width: 112px;
-        height: 112px;
-        border-radius: 56px;
+        x: parent.width / 2 - 44px;
+        y: parent.height / 2 - 44px;
+        width: 88px;
+        height: 88px;
+        border-radius: 44px;
         background: @conic-gradient(bg stop1, arc-color stop2, bg stop3, bg stop4);
         transform-rotation: -130deg;
         drop-shadow-color: root.drop-shadow ? #000000 : transparent;
@@ -283,9 +286,9 @@ export component GaugeSmall inherits Rectangle {
 
         for i in 14: TickDot {
             transform-rotation: 260deg * i / 13;
-            tick-y: 53px;
+            tick-y: 41px;
             tick-w: 1.5px;
-            tick-h: 5px;
+            tick-h: 4px;
             dot-color: i / 13.0 >= root.red-zone-start ? #ff3333 : (i / 13.0 > root.ratio + 0.02 ? #5a6470 : root.tick-bright);
         }
 
@@ -293,8 +296,7 @@ export component GaugeSmall inherits Rectangle {
             position-angle: 260deg * li / (root.label-count - 1);
             label-text: round((li * root.max-value) / ((root.label-count - 1) * root.label-divisor));
             label-color: (li / (root.label-count - 1.0)) >= root.red-zone-start ? #ff5555 : root.tick-bright;
-            // Override label position for small gauge
-            y: 43px;
+            label-radius: 32px;
         }
     }
 
@@ -307,52 +309,52 @@ export component GaugeSmall inherits Rectangle {
 
         // White border for visibility
         Rectangle {
-            x: -1.5px;
-            y: -48px;
-            width: 3px;
-            height: 48px;
+            x: -1.25px;
+            y: -38px;
+            width: 2.5px;
+            height: 38px;
             background: #ffffff;
-            border-radius: 1.5px;
+            border-radius: 1.25px;
         }
 
         // Inner needle
         Rectangle {
-            x: -1px;
-            y: -47px;
-            width: 2px;
-            height: 47px;
+            x: -0.75px;
+            y: -37px;
+            width: 1.5px;
+            height: 37px;
             background: night-mode ? #aa6600 : #ff2222;
-            border-radius: 1px;
+            border-radius: 0.75px;
         }
     }
 
     Rectangle {
-        x: parent.width / 2 - 4px;
-        y: parent.height / 2 - 4px;
-        width: 8px;
-        height: 8px;
-        border-radius: 4px;
+        x: parent.width / 2 - 3px;
+        y: parent.height / 2 - 3px;
+        width: 6px;
+        height: 6px;
+        border-radius: 3px;
         background: night-mode ? #553300 : #b2c7d8;
         border-width: 1px;
         border-color: bg;
     }
 
     Rectangle {
-        x: parent.width / 2 - 28px;
-        y: parent.height / 2 - 28px;
-        width: 56px;
-        height: 56px;
-        border-radius: 28px;
+        x: parent.width / 2 - 22px;
+        y: parent.height / 2 - 22px;
+        width: 44px;
+        height: 44px;
+        border-radius: 22px;
         background: bg;
         border-width: 1px;
         border-color: arc-color.with-alpha(0.25 + 0.35 * root.ratio);
 
         Text {
             x: 0;
-            y: parent.height / 2 - self.height / 2 - 4px;
+            y: parent.height / 2 - self.height / 2 - 3px;
             width: parent.width;
             text: round(value);
-            font-size: 16px;
+            font-size: 13px;
             font-weight: 700;
             color: night-mode ? #aa6600 : #ffffff;
             horizontal-alignment: center;
@@ -360,10 +362,10 @@ export component GaugeSmall inherits Rectangle {
 
         Text {
             x: 0;
-            y: parent.height / 2 + 8px;
+            y: parent.height / 2 + 6px;
             width: parent.width;
             text: label;
-            font-size: 8px;
+            font-size: 7px;
             color: night-mode ? #885500 : #b2c7d8;
             horizontal-alignment: center;
             letter-spacing: 1px;
@@ -631,10 +633,11 @@ export component TripComputerCompact inherits Rectangle {
     in-out property <float> trip-distance: 0;
     in-out property <float> avg-speed: 0;
     in-out property <int> trip-time-secs: 0;
+    in-out property <float> fuel-consumption: 0;
     in-out property <bool> night-mode: false;
 
-    width: 100px;
-    height: 40px;
+    width: 96px;
+    height: 36px;
     background: transparent;
 
     property <int> hours: floor(trip-time-secs / 3600);
@@ -664,6 +667,13 @@ export component TripComputerCompact inherits Rectangle {
                 color: night-mode ? #885500 : #888888;
                 horizontal-alignment: center;
             }
+            Text {
+                text: round(fuel-consumption * 10) / 10 + " L/100";
+                font-size: 9px;
+                font-weight: 600;
+                color: night-mode ? #aa6600 : #ffaa44;
+                horizontal-alignment: center;
+            }
         }
     }
 }
@@ -682,6 +692,7 @@ export component GaugeTrip inherits Rectangle {
     in-out property <float> trip-distance: 0;
     in-out property <float> avg-speed: 0;
     in-out property <int> trip-time-secs: 0;
+    in-out property <float> fuel-consumption: 0;
 
     property <color> bg: night-mode ? #050208 : #020414;
     property <color> arc-color: night-mode ? #aa3333 : #ff0000;
@@ -790,7 +801,7 @@ export component GaugeTrip inherits Rectangle {
         border-color: bg;
     }
 
-    // Inner circle with trip computer
+    // Inner red-bordered dial (restored from the original layout).
     Rectangle {
         x: parent.width / 2 - 70px;
         y: parent.height / 2 - 70px;
@@ -801,12 +812,13 @@ export component GaugeTrip inherits Rectangle {
         border-width: 1px;
         border-color: arc-color.with-alpha(0.25 + 0.35 * root.ratio);
 
+        // Speed digits, top half of the inner dial.
         Text {
             x: 0;
-            y: parent.height / 2 - self.height / 2 - 24px;
+            y: parent.height / 2 - self.height / 2 - 28px;
             width: parent.width;
             text: round(value);
-            font-size: 28px;
+            font-size: 32px;
             font-weight: 700;
             color: night-mode ? #aa6600 : #ffffff;
             horizontal-alignment: center;
@@ -814,22 +826,36 @@ export component GaugeTrip inherits Rectangle {
 
         Text {
             x: 0;
-            y: parent.height / 2 + 8px;
+            y: parent.height / 2 - 8px;
             width: parent.width;
             text: label;
-            font-size: 10px;
+            font-size: 9px;
             color: night-mode ? #885500 : #b2c7d8;
             horizontal-alignment: center;
             letter-spacing: 1px;
         }
 
-        TripComputerCompact {
+        // Rounded rectangle sub-panel inside the inner dial, holding trip
+        // distance, elapsed time, and instantaneous fuel consumption.
+        Rectangle {
             x: parent.width / 2 - 50px;
-            y: parent.height / 2 - 8px;
-            trip-distance: root.trip-distance;
-            avg-speed: root.avg-speed;
-            trip-time-secs: root.trip-time-secs;
-            night-mode: root.night-mode;
+            y: parent.height / 2 + 6px;
+            width: 100px;
+            height: 40px;
+            border-radius: 6px;
+            background: night-mode ? #0a0805 : #0a1018;
+            border-width: 1px;
+            border-color: night-mode ? #553300 : #6a7a8a;
+
+            TripComputerCompact {
+                x: parent.width / 2 - self.width / 2;
+                y: parent.height / 2 - self.height / 2;
+                trip-distance: root.trip-distance;
+                avg-speed: root.avg-speed;
+                trip-time-secs: root.trip-time-secs;
+                fuel-consumption: root.fuel-consumption;
+                night-mode: root.night-mode;
+            }
         }
     }
 }
