@@ -225,8 +225,8 @@ fn main() -> Result<()> {
         dashboard.on_key_pressed(move |key| {
             let mut st = state.borrow_mut();
             match key.as_str() {
-                "up" => st.source.nudge_speed(5.0),
-                "down" => st.source.nudge_speed(-5.0),
+                "up" => { st.source.start_driving(); st.source.nudge_speed(5.0); },
+                "down" => { st.source.start_driving(); st.source.nudge_speed(-5.0); },
                 "left" => st.source.toggle_left_turn(),
                 "right" => st.source.toggle_right_turn(),
                 "h" | "H" => st.source.toggle_high_beam(),

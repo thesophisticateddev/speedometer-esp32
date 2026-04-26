@@ -32,6 +32,7 @@ pub trait DataSource: Send {
     fn refuel(&mut self) {}
     fn shift_up(&mut self) {}
     fn shift_down(&mut self) {}
+    fn start_driving(&mut self) {}
 }
 
 /// Simulator-backed data source for desktop development.
@@ -111,6 +112,9 @@ impl DataSource for SimulatedSource {
     fn shift_down(&mut self) {
         self.sim.shift_down();
     }
+    fn start_driving(&mut self) {
+        self.sim.start_driving();
+    }
 }
 
 /// Stub for the ESP32 hardware target. Methods return safe defaults until the
@@ -154,5 +158,6 @@ impl DataSource for Esp32Source {
     fn read_gear(&mut self) -> i32 {
         0
     }
+    fn start_driving(&mut self) {}
     // Defaults for user-control methods — hardware does not accept them.
 }

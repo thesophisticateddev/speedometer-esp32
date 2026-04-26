@@ -26,6 +26,8 @@ pub struct Obd2Simulator {
     target_speed: f32,
     accelerating: bool,
     gear: usize,
+    // Manual mode: car stays at idle until user starts driving
+    started: bool,
     // user_target overrides the autonomous drive cycle when the user adjusts speed.
     user_target: Option<f32>,
 }
@@ -41,12 +43,21 @@ impl Obd2Simulator {
             target_speed: 0.0,
             accelerating: true,
             gear: 0,
+            started: false,
             user_target: None,
         }
     }
 
     pub fn get_gear(&self) -> usize {
         self.gear
+    }
+
+    pub fn is_started(&self) -> bool {
+        self.started
+    }
+
+    pub fn start_driving(&mut self) {
+        self.started = true;
     }
 
     pub fn shift_up(&mut self) {
@@ -63,6 +74,11 @@ impl Obd2Simulator {
 
     /// Run one simulation tick. Returns `(speed_kmh, rpm, fuel_pct, coolant_c)`.
     pub fn tick(&mut self) -> (f32, f32, f32, f32) {
+        // If not started, stay at idle (car is off / in neutral)
+        if !self.started {
+            return (0.0, IDLE_RPM + rand::thread_rng().gen_range(-30.0..30.0), self.fuel, self.temp);
+        }
+
         let now = Instant::now();
         let raw_dt = now.duration_since(self.last_update).as_secs_f32();
         let dt = raw_dt.min(MAX_DT);
