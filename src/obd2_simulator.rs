@@ -1,18 +1,21 @@
 use rand::Rng;
 use std::time::Instant;
 
-const MAX_SPEED: f32 = 180.0;
-const MAX_RPM: f32 = 8000.0;
+const MAX_SPEED: f32 = 240.0;
+const MAX_RPM: f32 = 9000.0;
 const IDLE_RPM: f32 = 700.0;
 // Idle uses an RPM floor below the lower clamp so jitter can dip slightly under it.
 const MIN_RPM: f32 = 600.0;
-const RPM_PER_KMH: f32 = 40.0;
 const FUEL_BURN_PER_KMH_PER_S: f32 = 1.0 / 1800.0;
 const BASE_TEMP: f32 = 75.0;
 const MAX_TEMP: f32 = 130.0;
 // Cap dt: large stalls (debugger pauses, OS suspend) would otherwise propel
 // physics integrators past their stable region in a single step.
 const MAX_DT: f32 = 0.2;
+
+// Gear ratios (higher gear = lower RPM for same speed)
+const GEAR_RATIOS: [f32; 6] = [3.5, 2.2, 1.5, 1.1, 0.9, 0.7];
+const MAX_GEAR: usize = 5; // 6 gears (0-5)
 
 pub struct Obd2Simulator {
     speed: f32,
@@ -22,6 +25,7 @@ pub struct Obd2Simulator {
     last_update: Instant,
     target_speed: f32,
     accelerating: bool,
+    gear: usize,
     // user_target overrides the autonomous drive cycle when the user adjusts speed.
     user_target: Option<f32>,
 }
@@ -36,7 +40,24 @@ impl Obd2Simulator {
             last_update: Instant::now(),
             target_speed: 0.0,
             accelerating: true,
+            gear: 0,
             user_target: None,
+        }
+    }
+
+    pub fn get_gear(&self) -> usize {
+        self.gear
+    }
+
+    pub fn shift_up(&mut self) {
+        if self.gear < MAX_GEAR {
+            self.gear += 1;
+        }
+    }
+
+    pub fn shift_down(&mut self) {
+        if self.gear > 0 {
+            self.gear -= 1;
         }
     }
 
@@ -68,9 +89,11 @@ impl Obd2Simulator {
         self.speed += (self.target_speed - self.speed) * 2.0 * dt;
         self.speed = self.speed.clamp(0.0, MAX_SPEED);
 
-        // RPM correlates with road speed; idle when stopped.
+        // RPM correlates with road speed and gear; idle when stopped.
+        let gear_ratio = GEAR_RATIOS[self.gear];
+        let base_rpm_per_kmh = 40.0;
         let target_rpm = if self.speed > 5.0 {
-            self.speed * RPM_PER_KMH + rng.gen_range(-200.0..200.0)
+            self.speed * base_rpm_per_kmh * gear_ratio + rng.gen_range(-200.0..200.0)
         } else {
             IDLE_RPM + rng.gen_range(-50.0..50.0)
         };

@@ -1,4 +1,13 @@
-import { Gauge, GaugeSmall, Indicator, LinearGauge, TripComputer, WarningBar } from "components.slint";
+import {
+    Gauge,
+    GaugeSmall,
+    GaugeTrip,
+    Indicator,
+    LinearGauge,
+    LinearGaugeVertical,
+    TripComputer,
+    WarningBar,
+} from "components.slint";
 
 export component Dashboard inherits Window {
     title: "OBD2 Digital Dashboard";
@@ -14,6 +23,8 @@ export component Dashboard inherits Window {
     in-out property <bool> right-turn: false;
     in-out property <bool> high-beam: false;
     in-out property <bool> night-mode: false;
+    in-out property <bool> show-drop-shadow: true;
+    in-out property <int> gear: 0;
 
     in-out property <float> trip-distance: 0;
     in-out property <float> avg-speed: 0;
@@ -69,15 +80,39 @@ export component Dashboard inherits Window {
                         active: root.left-turn;
                         night-mode: root.night-mode;
                     }
+
                     Indicator {
                         icon: "high-beam";
                         active: root.high-beam;
                         night-mode: root.night-mode;
                     }
+
                     Indicator {
                         icon: "right";
                         active: root.right-turn;
                         night-mode: root.night-mode;
+                    }
+
+                    // Gear indicator
+                    Rectangle {
+                        width: 48px;
+                        height: 44px;
+                        background: night-mode ? #0a0805 : #141414;
+                        border-radius: 6px;
+                        border-width: 1px;
+                        border-color: night-mode ? #2a1a05 : #2a2a2a;
+                        Text {
+                            x: 0;
+                            y: 0;
+                            width: parent.width;
+                            height: parent.height;
+                            text: gear == 0 ? "N" : "" + gear;
+                            font-size: 24px;
+                            font-weight: 700;
+                            color: night-mode ? #aa6600 : #00cc66;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
                     }
                 }
 
@@ -88,117 +123,158 @@ export component Dashboard inherits Window {
                     overspeed: root.overspeed-warning;
                 }
 
-                Rectangle {
-                    width: 180px;
-                    height: 32px;
-                    background: night-mode ? #1a1005 : #1a1a1a;
-                    border-radius: 4px;
-                    Text {
-                        x: 0; y: 0;
-                        width: parent.width;
-                        height: parent.height;
-                        text: night-mode ? "● NIGHT MODE" : "○ DAY MODE";
-                        font-size: 11px;
-                        font-weight: 700;
-                        color: night-mode ? #aa6600 : #888888;
-                        horizontal-alignment: center;
-                        vertical-alignment: center;
+                HorizontalLayout {
+                    spacing: 8px;
+
+                    Rectangle {
+                        width: 140px;
+                        height: 32px;
+                        background: night-mode ? #1a1005 : #1a1a1a;
+                        border-radius: 4px;
+                        TouchArea {
+                            clicked => {
+                                root.night-mode = !root.night-mode;
+                            }
+                        }
+                        Text {
+                            x: 0;
+                            y: 0;
+                            width: parent.width;
+                            height: parent.height;
+                            text: night-mode ? "● NIGHT" : "○ DAY";
+                            font-size: 11px;
+                            font-weight: 700;
+                            color: night-mode ? #aa6600 : #888888;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    Rectangle {
+                        width: 140px;
+                        height: 32px;
+                        background: show-drop-shadow ? #1a2a1a : #1a1a1a;
+                        border-radius: 4px;
+                        border-width: 1px;
+                        border-color: show-drop-shadow ? #2a4a2a : #2a2a2a;
+                        TouchArea {
+                            clicked => {
+                                root.show-drop-shadow = !root.show-drop-shadow;
+                            }
+                        }
+                        Text {
+                            x: 0;
+                            y: 0;
+                            width: parent.width;
+                            height: parent.height;
+                            text: show-drop-shadow ? "● SHADOW" : "○ SHADOW";
+                            font-size: 11px;
+                            font-weight: 700;
+                            color: show-drop-shadow ? #44aa44 : #888888;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
                     }
                 }
             }
 
-            // Middle: gauges.
+            // Middle: gauges with vertical linear gauges on sides.
             HorizontalLayout {
-                spacing: 24px;
+                spacing: 16px;
                 alignment: center;
 
-                Gauge {
-                    value: root.speed;
-                    max-value: 180;
-                    label: "km/h";
-                    red-zone-start: 120 / 180;     // overspeed threshold
+                // Fuel gauge - left of speedometer (vertical)
+                LinearGaugeVertical {
+                    value: root.fuel;
+                    max-value: 100;
+                    label: "FUEL";
+                    unit: "%";
+                    is-temp: false;
                     night-mode: root.night-mode;
                 }
 
                 VerticalLayout {
                     spacing: 12px;
                     alignment: center;
-                    TripComputer {
-                        trip-distance: root.trip-distance;
-                        avg-speed: root.avg-speed;
-                        trip-time-secs: root.trip-time-secs;
-                        night-mode: root.night-mode;
+
+                    // Top row: Speedometer + small gauges + RPM
+                    HorizontalLayout {
+                        spacing: 12px;
+                        alignment: center;
+
+                        GaugeTrip {
+                            value: root.speed;
+                            max-value: 240;
+                            label: "km/h";
+                            red-zone-start: 200 / 240;
+                            label-count: 13;
+                            night-mode: root.night-mode;
+                            drop-shadow: root.show-drop-shadow;
+                            trip-distance: root.trip-distance;
+                            avg-speed: root.avg-speed;
+                            trip-time-secs: root.trip-time-secs;
+                        }
+
+                        // Vertical stack of small gauges between speedometer and RPM
+                        VerticalLayout {
+                            spacing: 6px;
+                            alignment: center;
+
+                            GaugeSmall {
+                                value: root.oil-pressure;
+                                max-value: 100;
+                                label: "OIL";
+                                red-zone-start: 0.85;
+                                night-mode: root.night-mode;
+                                drop-shadow: root.show-drop-shadow;
+                            }
+
+                            GaugeSmall {
+                                value: root.voltage;
+                                max-value: 16;
+                                label: "VOLT";
+                                red-zone-start: 0.75;
+                                night-mode: root.night-mode;
+                                drop-shadow: root.show-drop-shadow;
+                            }
+
+                            GaugeSmall {
+                                value: root.afr;
+                                max-value: 30;
+                                label: "AFR";
+                                red-zone-start: 0.80;
+                                night-mode: root.night-mode;
+                                drop-shadow: root.show-drop-shadow;
+                            }
+                        }
+
+                        Gauge {
+                            value: root.rpm;
+                            max-value: 9000;
+                            label: "RPM x1000";
+                            red-zone-start: 7500 / 9000;
+                            label-count: 10;
+                            label-divisor: 1000;
+                            night-mode: root.night-mode;
+                            drop-shadow: root.show-drop-shadow;
+                        }
                     }
                 }
 
-                Gauge {
-                    value: root.rpm;
-                    max-value: 8000;
-                    label: "RPM x1000";
-                    red-zone-start: 7000 / 8000;
-                    label-count: 9;
-                    label-divisor: 1000;
+                // Coolant gauge - right of RPM (vertical)
+                LinearGaugeVertical {
+                    value: root.coolant-temp;
+                    max-value: 130;
+                    label: "COOL";
+                    unit: "°C";
+                    is-temp: true;
                     night-mode: root.night-mode;
                 }
             }
 
-             // Bottom: linear gauges.
-             HorizontalLayout {
-                 spacing: 24px;
-                 alignment: center;
-
-                 LinearGauge {
-                     value: root.fuel;
-                     max-value: 100;
-                     label: "FUEL";
-                     unit: "%";
-                     is-temp: false;
-                     night-mode: root.night-mode;
-                 }
-
-                 LinearGauge {
-                     value: root.coolant-temp;
-                     max-value: 130;
-                     label: "COOLANT";
-                     unit: "°C";
-                     is-temp: true;
-                     night-mode: root.night-mode;
-                 }
-             }
-             
-// Additional small gauges (40% size) - Oil pressure, voltage, AFR
-              HorizontalLayout {
-                  spacing: 16px;
-                  alignment: center;
-
-                  GaugeSmall {
-                      value: root.oil-pressure;
-                      max-value: 100;
-                      label: "OIL";
-                      red-zone-start: 0.85;
-                      night-mode: root.night-mode;
-                  }
-
-                  GaugeSmall {
-                      value: root.voltage;
-                      max-value: 16;
-                      label: "VOLT";
-                      red-zone-start: 0.75;
-                      night-mode: root.night-mode;
-                  }
-
-                  GaugeSmall {
-                      value: root.afr;
-                      max-value: 30;
-                      label: "AFR";
-                      red-zone-start: 0.80;
-                      night-mode: root.night-mode;
-                  }
-              }
-
             // Help text at the bottom.
             Text {
-                text: "↑/↓ speed   ←/→ signals   H high-beam   N night   R reset trip   Q quit";
+                text: "↑/↓ speed   A/Z gear   ←/→ signals   H high-beam   N night   S shadow   R reset   Q quit";
                 font-size: 10px;
                 color: night-mode ? #553300 : #555555;
                 horizontal-alignment: center;

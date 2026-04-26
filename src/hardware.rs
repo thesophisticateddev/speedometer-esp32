@@ -13,6 +13,7 @@ pub trait DataSource: Send {
     fn read_temp(&mut self) -> f32;
     fn read_turn_signals(&mut self) -> (bool, bool);
     fn read_headlights(&mut self) -> bool;
+    fn read_gear(&mut self) -> i32;
 
     /// Drive any internal state forward. Sources backed by polled hardware
     /// (CAN bus, ELM327) implement this to fetch a new sample; the simulator
@@ -29,6 +30,8 @@ pub trait DataSource: Send {
     fn toggle_high_beam(&mut self) {}
     fn nudge_speed(&mut self, _delta_kmh: f32) {}
     fn refuel(&mut self) {}
+    fn shift_up(&mut self) {}
+    fn shift_down(&mut self) {}
 }
 
 /// Simulator-backed data source for desktop development.
@@ -83,6 +86,9 @@ impl DataSource for SimulatedSource {
     fn read_headlights(&mut self) -> bool {
         self.high_beam
     }
+    fn read_gear(&mut self) -> i32 {
+        self.sim.get_gear() as i32
+    }
 
     fn toggle_left_turn(&mut self) {
         self.left_turn = !self.left_turn;
@@ -98,6 +104,12 @@ impl DataSource for SimulatedSource {
     }
     fn refuel(&mut self) {
         self.sim.refuel();
+    }
+    fn shift_up(&mut self) {
+        self.sim.shift_up();
+    }
+    fn shift_down(&mut self) {
+        self.sim.shift_down();
     }
 }
 
@@ -138,6 +150,9 @@ impl DataSource for Esp32Source {
     }
     fn read_headlights(&mut self) -> bool {
         false
+    }
+    fn read_gear(&mut self) -> i32 {
+        0
     }
     // Defaults for user-control methods — hardware does not accept them.
 }
