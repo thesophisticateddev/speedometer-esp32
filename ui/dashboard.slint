@@ -1,4 +1,4 @@
-import { Gauge, Indicator, LinearGauge, TripComputer, WarningBar } from "components.slint";
+import { Gauge, GaugeSmall, Indicator, LinearGauge, TripComputer, WarningBar } from "components.slint";
 
 export component Dashboard inherits Window {
     title: "OBD2 Digital Dashboard";
@@ -18,6 +18,11 @@ export component Dashboard inherits Window {
     in-out property <float> trip-distance: 0;
     in-out property <float> avg-speed: 0;
     in-out property <int> trip-time-secs: 0;
+
+    // Additional gauges for oil pressure, voltage, and air-fuel ratio
+    in-out property <float> oil-pressure: 0;      // 0-100 psi
+    in-out property <float> voltage: 0;           // 0-16V
+    in-out property <float> afr: 0;               // Air-Fuel Ratio (0-30)
 
     // Derived warnings — Rust side keeps these authoritative so logic lives in one place.
     in-out property <bool> overheat-warning: coolant-temp > 110;
@@ -137,29 +142,59 @@ export component Dashboard inherits Window {
                 }
             }
 
-            // Bottom: linear gauges.
-            HorizontalLayout {
-                spacing: 24px;
-                alignment: center;
+             // Bottom: linear gauges.
+             HorizontalLayout {
+                 spacing: 24px;
+                 alignment: center;
 
-                LinearGauge {
-                    value: root.fuel;
-                    max-value: 100;
-                    label: "FUEL";
-                    unit: "%";
-                    is-temp: false;
-                    night-mode: root.night-mode;
-                }
+                 LinearGauge {
+                     value: root.fuel;
+                     max-value: 100;
+                     label: "FUEL";
+                     unit: "%";
+                     is-temp: false;
+                     night-mode: root.night-mode;
+                 }
 
-                LinearGauge {
-                    value: root.coolant-temp;
-                    max-value: 130;
-                    label: "COOLANT";
-                    unit: "°C";
-                    is-temp: true;
-                    night-mode: root.night-mode;
-                }
-            }
+                 LinearGauge {
+                     value: root.coolant-temp;
+                     max-value: 130;
+                     label: "COOLANT";
+                     unit: "°C";
+                     is-temp: true;
+                     night-mode: root.night-mode;
+                 }
+             }
+             
+// Additional small gauges (40% size) - Oil pressure, voltage, AFR
+              HorizontalLayout {
+                  spacing: 16px;
+                  alignment: center;
+
+                  GaugeSmall {
+                      value: root.oil-pressure;
+                      max-value: 100;
+                      label: "OIL";
+                      red-zone-start: 0.85;
+                      night-mode: root.night-mode;
+                  }
+
+                  GaugeSmall {
+                      value: root.voltage;
+                      max-value: 16;
+                      label: "VOLT";
+                      red-zone-start: 0.75;
+                      night-mode: root.night-mode;
+                  }
+
+                  GaugeSmall {
+                      value: root.afr;
+                      max-value: 30;
+                      label: "AFR";
+                      red-zone-start: 0.80;
+                      night-mode: root.night-mode;
+                  }
+              }
 
             // Help text at the bottom.
             Text {

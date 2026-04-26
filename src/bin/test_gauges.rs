@@ -12,7 +12,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-const TICK_MS: u64 = 16; // ~60 fps
+const TICK_MS: u64 = 7; // ~135 fps (matches high refresh rate displays)
 const TOTAL_SECS: f32 = 30.0;
 
 struct Frames {
