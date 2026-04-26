@@ -75,6 +75,7 @@ export component Gauge inherits Rectangle {
     in-out property <string> label: "km/h";
     in-out property <bool> night-mode: false;
     in-out property <bool> drop-shadow: true;
+    in-out property <bool> show-arc-trail: true;
     // Number of numeric labels around the dial, including both endpoints.
     // Speedometer uses 10 (0,20,…,180), tachometer uses 9 (0,1,…,8).
     in property <int> label-count: 10;
@@ -110,7 +111,7 @@ export component Gauge inherits Rectangle {
         width: 280px;
         height: 280px;
         border-radius: 140px;
-        background: @conic-gradient(bg stop1, arc-color stop2, bg stop3, bg stop4);
+        background: root.show-arc-trail ? @conic-gradient(bg stop1, arc-color stop2, bg stop3, bg stop4) : bg;
         transform-rotation: -130deg;
         drop-shadow-color: root.drop-shadow ? #000000 : transparent;
         drop-shadow-blur: root.drop-shadow ? 8px : 0px;
@@ -268,7 +269,9 @@ export component GaugeSmall inherits Rectangle {
         width: 88px;
         height: 88px;
         border-radius: 44px;
-        background: @conic-gradient(bg stop1, arc-color stop2, bg stop3, bg stop4);
+        // Small gauges intentionally omit the moving conic-gradient trail —
+        // it adds a lot of pixel work for very little visual return at 88px.
+        background: bg;
         transform-rotation: -130deg;
         drop-shadow-color: root.drop-shadow ? #000000 : transparent;
         drop-shadow-blur: root.drop-shadow ? 4px : 0px;
@@ -686,6 +689,7 @@ export component GaugeTrip inherits Rectangle {
     in-out property <string> label: "km/h";
     in-out property <bool> night-mode: false;
     in-out property <bool> drop-shadow: true;
+    in-out property <bool> show-arc-trail: true;
     in property <int> label-count: 10;
     in property <float> label-divisor: 1.0;
 
@@ -723,7 +727,7 @@ export component GaugeTrip inherits Rectangle {
         width: 280px;
         height: 280px;
         border-radius: 140px;
-        background: @conic-gradient(bg stop1, arc-color stop2, bg stop3, bg stop4);
+        background: root.show-arc-trail ? @conic-gradient(bg stop1, arc-color stop2, bg stop3, bg stop4) : bg;
         transform-rotation: -130deg;
         drop-shadow-color: root.drop-shadow ? #000000 : transparent;
         drop-shadow-blur: root.drop-shadow ? 8px : 0px;
