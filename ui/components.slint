@@ -88,7 +88,10 @@ export component Gauge inherits Rectangle {
 
     property <float> clamped: max(0, min(value, max-value));
     property <float> ratio: clamped / max-value;
-    animate value { duration: 100ms; easing: ease-out; }
+    animate value {
+        duration: 100ms;
+        easing: ease-out;
+    }
 
     property <angle> arc-end: ratio * 260deg;
     property <angle> stop1: max(0deg, arc-end - 100deg);
@@ -103,12 +106,7 @@ export component Gauge inherits Rectangle {
         width: 280px;
         height: 280px;
         border-radius: 140px;
-        background: @conic-gradient(
-            bg stop1,
-            arc-color stop2,
-            bg stop3,
-            bg stop4
-        );
+        background: @conic-gradient(bg stop1, arc-color stop2, bg stop3, bg stop4);
         transform-rotation: -130deg;
     }
 
@@ -121,31 +119,27 @@ export component Gauge inherits Rectangle {
         height: 0;
         transform-rotation: 50deg;
 
-        for i in 27 : TickDot {
+        for i in 27: TickDot {
             transform-rotation: 260deg * i / 26;
             tick-y: 132px;
             tick-w: 2px;
             tick-h: 6px;
             dot-color: i / 26.0 > root.ratio + 0.02 ? root.tick-color : #6a7785;
         }
-        for i in 14 : TickDot {
+        for i in 14: TickDot {
             transform-rotation: 260deg * i / 13;
             tick-y: 126px;
             tick-w: 3px;
             tick-h: 14px;
-            dot-color: i / 13.0 >= root.red-zone-start
-                ? #ff3333
-                : (i / 13.0 > root.ratio + 0.02 ? #5a6470 : root.tick-bright);
+            dot-color: i / 13.0 >= root.red-zone-start ? #ff3333 : (i / 13.0 > root.ratio + 0.02 ? #5a6470 : root.tick-bright);
         }
 
         // Numeric labels around the dial. Step uses (label-count - 1) so both
         // endpoints get a label.
-        for li in root.label-count : TickLabel {
+        for li in root.label-count: TickLabel {
             position-angle: 260deg * li / (root.label-count - 1);
             label-text: round((li * root.max-value) / ((root.label-count - 1) * root.label-divisor));
-            label-color: (li / (root.label-count - 1.0)) >= root.red-zone-start
-                ? #ff5555
-                : root.tick-bright;
+            label-color: (li / (root.label-count - 1.0)) >= root.red-zone-start ? #ff5555 : root.tick-bright;
         }
     }
 
@@ -161,10 +155,11 @@ export component Gauge inherits Rectangle {
         Rectangle {
             x: -1.5px;
             y: -118px;
-            width: 3px;
+            width: 8px;
             height: 118px;
-            background: night-mode ? #aa6600 : #ff2222;
-            border-radius: 1.5px;
+            background: night-mode ? #aa6600 : #f82222;
+            border-radius: 2.5px;
+            border-color: #b2c7d8;
         }
     }
 
@@ -236,7 +231,10 @@ export component GaugeSmall inherits Rectangle {
 
     property <float> clamped: max(0, min(value, max-value));
     property <float> ratio: clamped / max-value;
-    animate value { duration: 100ms; easing: ease-out; }
+    animate value {
+        duration: 100ms;
+        easing: ease-out;
+    }
 
     property <angle> arc-end: ratio * 260deg;
     property <angle> stop1: max(0deg, arc-end - 100deg);
@@ -250,12 +248,7 @@ export component GaugeSmall inherits Rectangle {
         width: 112px;
         height: 112px;
         border-radius: 56px;
-        background: @conic-gradient(
-            bg stop1,
-            arc-color stop2,
-            bg stop3,
-            bg stop4
-        );
+        background: @conic-gradient(bg stop1, arc-color stop2, bg stop3, bg stop4);
         transform-rotation: -130deg;
     }
 
@@ -266,22 +259,18 @@ export component GaugeSmall inherits Rectangle {
         height: 0;
         transform-rotation: 50deg;
 
-        for i in 14 : TickDot {
+        for i in 14: TickDot {
             transform-rotation: 260deg * i / 13;
             tick-y: 53px;
             tick-w: 1.5px;
             tick-h: 5px;
-            dot-color: i / 13.0 >= root.red-zone-start
-                ? #ff3333
-                : (i / 13.0 > root.ratio + 0.02 ? #5a6470 : root.tick-bright);
+            dot-color: i / 13.0 >= root.red-zone-start ? #ff3333 : (i / 13.0 > root.ratio + 0.02 ? #5a6470 : root.tick-bright);
         }
 
-        for li in root.label-count : TickLabel {
+        for li in root.label-count: TickLabel {
             position-angle: 260deg * li / (root.label-count - 1);
             label-text: round((li * root.max-value) / ((root.label-count - 1) * root.label-divisor));
-            label-color: (li / (root.label-count - 1.0)) >= root.red-zone-start
-                ? #ff5555
-                : root.tick-bright;
+            label-color: (li / (root.label-count - 1.0)) >= root.red-zone-start ? #ff5555 : root.tick-bright;
             // Override label position for small gauge
             y: 43px;
         }
@@ -363,20 +352,17 @@ export component LinearGauge inherits Rectangle {
     property <float> clamped: max(0, min(value, max-value));
     property <float> ratio: clamped / max-value;
     property <color> bar-color:
-        is-temp
-            ? (value < 70 ? #3a8fff
-              : value < 95 ? #00cc44
-              : value < 110 ? #ffaa00
-              : #ff3333)
-            : (value < 10 ? #ff3333
-              : value < 30 ? #ffaa00
-              : #00cc44);
+        is-temp ? (value < 70 ? #3a8fff : value < 95 ? #00cc44 : value < 110 ? #ffaa00 : #ff3333) : (value < 10 ? #ff3333 : value < 30 ? #ffaa00 : #00cc44);
 
-    animate value { duration: 80ms; easing: ease-out; }
+    animate value {
+        duration: 80ms;
+        easing: ease-out;
+    }
 
     // Track.
     Rectangle {
-        x: 0; y: 6px;
+        x: 0;
+        y: 6px;
         width: parent.width;
         height: 26px;
         background: night-mode ? #0a0805 : #1a1a1a;
@@ -387,7 +373,8 @@ export component LinearGauge inherits Rectangle {
 
     // Fill.
     Rectangle {
-        x: 3px; y: 9px;
+        x: 3px;
+        y: 9px;
         width: (parent.width - 6px) * ratio;
         height: 20px;
         background: bar-color;
@@ -397,7 +384,8 @@ export component LinearGauge inherits Rectangle {
 
     // Label.
     Text {
-        x: 4px; y: 38px;
+        x: 4px;
+        y: 38px;
         text: label;
         font-size: 11px;
         font-weight: 700;
@@ -406,7 +394,8 @@ export component LinearGauge inherits Rectangle {
 
     // Value readout.
     Text {
-        x: parent.width - 84px; y: 38px;
+        x: parent.width - 84px;
+        y: 38px;
         width: 80px;
         text: round(value) + unit;
         font-size: 12px;
@@ -428,11 +417,11 @@ export component Indicator inherits Rectangle {
     property <bool> is-right: icon == "right";
     property <bool> is-beam: icon == "high-beam";
     property <color> active-color:
-        is-beam ? (night-mode ? #888844 : #00bfff)
-                : (night-mode ? #336622 : #00ff66);
+        is-beam ? (night-mode ? #888844 : #00bfff) : (night-mode ? #336622 : #00ff66);
 
     Rectangle {
-        x: 4px; y: 4px;
+        x: 4px;
+        y: 4px;
         width: parent.width - 8px;
         height: parent.height - 8px;
         background: active ? active-color : (night-mode ? #110a05 : #1a1a1a);
@@ -448,7 +437,8 @@ export component Indicator inherits Rectangle {
     }
 
     Text {
-        x: 0; y: 0;
+        x: 0;
+        y: 0;
         width: parent.width;
         height: parent.height;
         text: is-left ? "◀" : is-right ? "▶" : "≡";
@@ -490,6 +480,7 @@ export component TripComputer inherits Rectangle {
                 color: night-mode ? #885500 : #888888;
                 width: 60px;
             }
+
             Text {
                 text: round(trip-distance * 10) / 10 + " km";
                 font-size: 13px;
@@ -497,6 +488,7 @@ export component TripComputer inherits Rectangle {
                 color: night-mode ? #aa6600 : #ffffff;
             }
         }
+
         HorizontalLayout {
             Text {
                 text: "AVG";
@@ -504,6 +496,7 @@ export component TripComputer inherits Rectangle {
                 color: night-mode ? #885500 : #888888;
                 width: 60px;
             }
+
             Text {
                 text: round(avg-speed) + " km/h";
                 font-size: 13px;
@@ -511,6 +504,7 @@ export component TripComputer inherits Rectangle {
                 color: night-mode ? #aa6600 : #ffffff;
             }
         }
+
         HorizontalLayout {
             Text {
                 text: "TIME";
@@ -518,6 +512,7 @@ export component TripComputer inherits Rectangle {
                 color: night-mode ? #885500 : #888888;
                 width: 60px;
             }
+
             Text {
                 text: hh + ":" + mm + ":" + ss;
                 font-size: 13px;
@@ -554,6 +549,7 @@ export component WarningBar inherits Rectangle {
                 direction: alternate;
             }
         }
+
         Text {
             text: "⚠ LOW FUEL";
             font-size: 14px;
@@ -567,6 +563,7 @@ export component WarningBar inherits Rectangle {
                 direction: alternate;
             }
         }
+
         Text {
             text: "⚠ SPEED";
             font-size: 14px;

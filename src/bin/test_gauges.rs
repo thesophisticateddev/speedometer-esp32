@@ -12,8 +12,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 use std::time::{Duration, Instant};
 
-const TICK_MS: u64 = 7; // ~135 fps (matches high refresh rate displays)
-const TOTAL_SECS: f32 = 30.0;
+const TICK_MS: u64 = 2; // ~135 fps (matches high refresh rate displays)
+const TOTAL_SECS: f32 = 3.0;
 
 struct Frames {
     count: u64,
@@ -49,7 +49,7 @@ fn main() -> Result<()> {
             let speed = tri * 180.0;
             let rpm = tri * 8000.0;
             let fuel = (1.0 - phase) * 100.0;
-            let temp = 60.0 + tri * 70.0;
+            let temp = 60.0 + tri * 80.0;
 
             dash.set_speed(speed);
             dash.set_rpm(rpm);
@@ -62,7 +62,7 @@ fn main() -> Result<()> {
             // Toggle indicators every 2 seconds.
             let toggle = (elapsed as i32 / 2) % 2 == 0;
             dash.set_left_turn(toggle);
-            dash.set_right_turn(!toggle);
+            dash.set_right_turn(toggle);
             dash.set_high_beam(toggle);
 
             f.count += 1;

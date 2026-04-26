@@ -1,0 +1,55 @@
+export component TickDot inherits Rectangle {
+    in property <length> tick-y: 130px;
+    in property <length> tick-w: 3px;
+    in property <length> tick-h: 8px;
+    in property <color> dot-color: #47505b;
+    width: 0;
+    height: 0;
+    Rectangle {
+        y: tick-y;
+        x: -(tick-w / 2);
+        width: tick-w;
+        height: tick-h;
+        background: dot-color;
+        border-radius: tick-w / 2;
+    }
+}
+
+
+export component TickLabel inherits Rectangle {
+    in property <string> label-text;
+    in property <angle> position-angle;
+    in property <color> label-color: #b2c7d8;
+    width: 0;
+    height: 0;
+
+    // Outer rotates to position the label's center at the tick angle. Inner
+    // counter-rotates so the text reads upright (the +50deg cancels the
+    // pre-rotation applied by the dial parent).
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: 0;
+        height: 0;
+        transform-rotation: position-angle;
+        Rectangle {
+            y: 108px;
+            x: -16px;
+            width: 32px;
+            height: 18px;
+            transform-rotation: -position-angle - 50deg;
+            Text {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                height: parent.height;
+                text: root.label-text;
+                font-size: 13px;
+                font-weight: 600;
+                color: root.label-color;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
