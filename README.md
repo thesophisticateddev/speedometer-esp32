@@ -86,4 +86,4 @@ that trait against the ELM327 UART driver — the UI layer is unchanged.
 
 ## License
 
-MIT
+Apache-2.0
