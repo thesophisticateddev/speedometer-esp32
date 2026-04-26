@@ -1,0 +1,173 @@
+import { Gauge, Indicator, LinearGauge, TripComputer, WarningBar } from "components.slint";
+
+export component Dashboard inherits Window {
+    title: "OBD2 Digital Dashboard";
+    width: 900px;
+    height: 540px;
+    background: night-mode ? #050505 : #0a0a0a;
+
+    in-out property <float> speed: 0;
+    in-out property <float> rpm: 0;
+    in-out property <float> fuel: 100;
+    in-out property <float> coolant-temp: 90;
+    in-out property <bool> left-turn: false;
+    in-out property <bool> right-turn: false;
+    in-out property <bool> high-beam: false;
+    in-out property <bool> night-mode: false;
+
+    in-out property <float> trip-distance: 0;
+    in-out property <float> avg-speed: 0;
+    in-out property <int> trip-time-secs: 0;
+
+    // Derived warnings — Rust side keeps these authoritative so logic lives in one place.
+    in-out property <bool> overheat-warning: coolant-temp > 110;
+    in-out property <bool> low-fuel-warning: fuel < 10;
+    in-out property <bool> overspeed-warning: speed > 120;
+
+    callback key-pressed(string);
+
+    forward-focus: focus-scope;
+
+    focus-scope := FocusScope {
+        key-pressed(event) => {
+            // Normalize special keys to short tags so the Rust handler can
+            // match on plain ASCII strings.
+            if (event.text == Key.UpArrow) {
+                root.key-pressed("up");
+            } else if (event.text == Key.DownArrow) {
+                root.key-pressed("down");
+            } else if (event.text == Key.LeftArrow) {
+                root.key-pressed("left");
+            } else if (event.text == Key.RightArrow) {
+                root.key-pressed("right");
+            } else if (event.text == Key.Escape) {
+                root.key-pressed("esc");
+            } else {
+                root.key-pressed(event.text);
+            }
+            accept
+        }
+
+        VerticalLayout {
+            padding: 16px;
+            spacing: 12px;
+
+            // Top: warnings + indicators.
+            HorizontalLayout {
+                spacing: 16px;
+                alignment: space-between;
+
+                HorizontalLayout {
+                    spacing: 12px;
+                    Indicator {
+                        icon: "left";
+                        active: root.left-turn;
+                        night-mode: root.night-mode;
+                    }
+                    Indicator {
+                        icon: "high-beam";
+                        active: root.high-beam;
+                        night-mode: root.night-mode;
+                    }
+                    Indicator {
+                        icon: "right";
+                        active: root.right-turn;
+                        night-mode: root.night-mode;
+                    }
+                }
+
+                WarningBar {
+                    width: 360px;
+                    overheat: root.overheat-warning;
+                    low-fuel: root.low-fuel-warning;
+                    overspeed: root.overspeed-warning;
+                }
+
+                Rectangle {
+                    width: 180px;
+                    height: 32px;
+                    background: night-mode ? #1a1005 : #1a1a1a;
+                    border-radius: 4px;
+                    Text {
+                        x: 0; y: 0;
+                        width: parent.width;
+                        height: parent.height;
+                        text: night-mode ? "● NIGHT MODE" : "○ DAY MODE";
+                        font-size: 11px;
+                        font-weight: 700;
+                        color: night-mode ? #aa6600 : #888888;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+
+            // Middle: gauges.
+            HorizontalLayout {
+                spacing: 24px;
+                alignment: center;
+
+                Gauge {
+                    value: root.speed;
+                    max-value: 180;
+                    label: "km/h";
+                    red-zone-start: 120 / 180;     // overspeed threshold
+                    night-mode: root.night-mode;
+                }
+
+                VerticalLayout {
+                    spacing: 12px;
+                    alignment: center;
+                    TripComputer {
+                        trip-distance: root.trip-distance;
+                        avg-speed: root.avg-speed;
+                        trip-time-secs: root.trip-time-secs;
+                        night-mode: root.night-mode;
+                    }
+                }
+
+                Gauge {
+                    value: root.rpm;
+                    max-value: 8000;
+                    label: "RPM x1000";
+                    red-zone-start: 7000 / 8000;
+                    label-count: 9;
+                    label-divisor: 1000;
+                    night-mode: root.night-mode;
+                }
+            }
+
+            // Bottom: linear gauges.
+            HorizontalLayout {
+                spacing: 24px;
+                alignment: center;
+
+                LinearGauge {
+                    value: root.fuel;
+                    max-value: 100;
+                    label: "FUEL";
+                    unit: "%";
+                    is-temp: false;
+                    night-mode: root.night-mode;
+                }
+
+                LinearGauge {
+                    value: root.coolant-temp;
+                    max-value: 130;
+                    label: "COOLANT";
+                    unit: "°C";
+                    is-temp: true;
+                    night-mode: root.night-mode;
+                }
+            }
+
+            // Help text at the bottom.
+            Text {
+                text: "↑/↓ speed   ←/→ signals   H high-beam   N night   R reset trip   Q quit";
+                font-size: 10px;
+                color: night-mode ? #553300 : #555555;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}

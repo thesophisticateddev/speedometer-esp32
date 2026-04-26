@@ -1,0 +1,450 @@
+// Reusable dashboard components.
+// Gauge: circular speedometer with animated needle, colored ring zones, tick marks.
+// LinearGauge: horizontal bar with mode-aware color palette (fuel vs temperature).
+// Indicator: pulsing icon for turn signals and high-beam.
+// TripComputer: read-only stats panel.
+// WarningBar: flashing per-warning text labels.
+
+// Gauge style adapted from the Slint speedometer demo
+// (slint-ui/slint examples/speedometer/demo.slint, MIT). Cost-tuned for
+// software rendering: dot counts kept low, no drop-shadow, single value
+// animation drives the conic gradient and the rotated needle.
+
+component TickDot inherits Rectangle {
+    in property <length> tick-y: 130px;
+    in property <length> tick-w: 3px;
+    in property <length> tick-h: 8px;
+    in property <color> dot-color: #47505b;
+    width: 0;
+    height: 0;
+    Rectangle {
+        y: tick-y;
+        x: -(tick-w / 2);
+        width: tick-w;
+        height: tick-h;
+        background: dot-color;
+        border-radius: tick-w / 2;
+    }
+}
+
+component TickLabel inherits Rectangle {
+    in property <string> label-text;
+    in property <angle> position-angle;
+    in property <color> label-color: #b2c7d8;
+    width: 0;
+    height: 0;
+
+    // Outer rotates to position the label's center at the tick angle. Inner
+    // counter-rotates so the text reads upright (the +50deg cancels the
+    // pre-rotation applied by the dial parent).
+    Rectangle {
+        x: 0;
+        y: 0;
+        width: 0;
+        height: 0;
+        transform-rotation: position-angle;
+        Rectangle {
+            y: 108px;
+            x: -16px;
+            width: 32px;
+            height: 18px;
+            transform-rotation: -position-angle - 50deg;
+            Text {
+                x: 0;
+                y: 0;
+                width: parent.width;
+                height: parent.height;
+                text: root.label-text;
+                font-size: 13px;
+                font-weight: 600;
+                color: root.label-color;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}
+
+export component Gauge inherits Rectangle {
+    in-out property <float> value: 0;
+    in-out property <float> max-value: 180;
+    in-out property <float> red-zone-start: 0.85;
+    in-out property <string> label: "km/h";
+    in-out property <bool> night-mode: false;
+    // Number of numeric labels around the dial, including both endpoints.
+    // Speedometer uses 10 (0,20,…,180), tachometer uses 9 (0,1,…,8).
+    in property <int> label-count: 10;
+    // Divisor applied to label values (e.g. 1000 for an RPM dial labelled 0..8).
+    in property <float> label-divisor: 1.0;
+
+    property <color> bg: night-mode ? #050208 : #020414;
+    property <color> arc-color: night-mode ? #aa3333 : #ff0000;
+    property <color> tick-color: night-mode ? #2a2218 : #47505b;
+    property <color> tick-bright: night-mode ? #553300 : #b2c7d8;
+
+    width: 280px;
+    height: 280px;
+    background: transparent;
+
+    property <float> clamped: max(0, min(value, max-value));
+    property <float> ratio: clamped / max-value;
+    animate value { duration: 220ms; easing: ease-in-out; }
+
+    property <angle> arc-end: ratio * 260deg;
+    property <angle> stop1: max(0deg, arc-end - 100deg);
+    property <angle> stop2: arc-end;
+    property <angle> stop3: arc-end + 1deg;
+    property <angle> stop4: 360deg;
+
+    // Outer ring — single conic-gradient with the moving comet trail.
+    Rectangle {
+        x: parent.width / 2 - 140px;
+        y: parent.height / 2 - 140px;
+        width: 280px;
+        height: 280px;
+        border-radius: 140px;
+        background: @conic-gradient(
+            bg stop1,
+            arc-color stop2,
+            bg stop3,
+            bg stop4
+        );
+        transform-rotation: -130deg;
+    }
+
+    // Tick rosette — 27 mini ticks + 14 big ticks. Pre-rotated by 50deg so
+    // index 0 lands at the bottom-left of the dial.
+    Rectangle {
+        x: parent.width / 2;
+        y: parent.height / 2;
+        width: 0;
+        height: 0;
+        transform-rotation: 50deg;
+
+        for i in 27 : TickDot {
+            transform-rotation: 260deg * i / 26;
+            tick-y: 132px;
+            tick-w: 2px;
+            tick-h: 6px;
+            dot-color: i / 26.0 > root.ratio + 0.02 ? root.tick-color : #6a7785;
+        }
+        for i in 14 : TickDot {
+            transform-rotation: 260deg * i / 13;
+            tick-y: 126px;
+            tick-w: 3px;
+            tick-h: 14px;
+            dot-color: i / 13.0 >= root.red-zone-start
+                ? #ff3333
+                : (i / 13.0 > root.ratio + 0.02 ? #5a6470 : root.tick-bright);
+        }
+
+        // Numeric labels around the dial. Step uses (label-count - 1) so both
+        // endpoints get a label.
+        for li in root.label-count : TickLabel {
+            position-angle: 260deg * li / (root.label-count - 1);
+            label-text: round((li * root.max-value) / ((root.label-count - 1) * root.label-divisor));
+            label-color: (li / (root.label-count - 1.0)) >= root.red-zone-start
+                ? #ff5555
+                : root.tick-bright;
+        }
+    }
+
+    // Needle — single transform-rotation driven by `value` (which is itself
+    // animated), so we don't pay for two animation chains.
+    Rectangle {
+        x: parent.width / 2;
+        y: parent.height / 2;
+        width: 0;
+        height: 0;
+        transform-rotation: (root.ratio * 260 - 130) * 1deg;
+
+        Rectangle {
+            x: -1.5px;
+            y: -118px;
+            width: 3px;
+            height: 118px;
+            background: night-mode ? #aa6600 : #ff2222;
+            border-radius: 1.5px;
+        }
+    }
+
+    // Center hub.
+    Rectangle {
+        x: parent.width / 2 - 8px;
+        y: parent.height / 2 - 8px;
+        width: 16px;
+        height: 16px;
+        border-radius: 8px;
+        background: night-mode ? #553300 : #b2c7d8;
+        border-width: 1px;
+        border-color: bg;
+    }
+
+    // Inner circle (no drop-shadow — too expensive in software rendering).
+    Rectangle {
+        x: parent.width / 2 - 70px;
+        y: parent.height / 2 - 70px;
+        width: 140px;
+        height: 140px;
+        border-radius: 70px;
+        background: bg;
+        border-width: 1px;
+        border-color: arc-color.with-alpha(0.25 + 0.35 * root.ratio);
+
+        Text {
+            x: 0;
+            y: parent.height / 2 - self.height / 2 - 10px;
+            width: parent.width;
+            text: round(value);
+            font-size: 36px;
+            font-weight: 700;
+            color: night-mode ? #aa6600 : #ffffff;
+            horizontal-alignment: center;
+        }
+
+        Text {
+            x: 0;
+            y: parent.height / 2 + 18px;
+            width: parent.width;
+            text: label;
+            font-size: 13px;
+            color: night-mode ? #885500 : #b2c7d8;
+            horizontal-alignment: center;
+            letter-spacing: 2px;
+        }
+    }
+}
+
+export component LinearGauge inherits Rectangle {
+    in-out property <float> value: 0;
+    in-out property <float> max-value: 100;
+    in-out property <string> label: "VALUE";
+    in-out property <string> unit: "%";
+    in-out property <bool> is-temp: false;
+    in-out property <bool> night-mode: false;
+
+    width: 320px;
+    height: 56px;
+
+    property <float> clamped: max(0, min(value, max-value));
+    property <float> ratio: clamped / max-value;
+    property <color> bar-color:
+        is-temp
+            ? (value < 70 ? #3a8fff
+              : value < 95 ? #00cc44
+              : value < 110 ? #ffaa00
+              : #ff3333)
+            : (value < 10 ? #ff3333
+              : value < 30 ? #ffaa00
+              : #00cc44);
+
+    animate value { duration: 200ms; easing: ease-out; }
+
+    // Track.
+    Rectangle {
+        x: 0; y: 6px;
+        width: parent.width;
+        height: 26px;
+        background: night-mode ? #0a0805 : #1a1a1a;
+        border-radius: 4px;
+        border-width: 1px;
+        border-color: night-mode ? #1a1005 : #2a2a2a;
+    }
+
+    // Fill.
+    Rectangle {
+        x: 3px; y: 9px;
+        width: (parent.width - 6px) * ratio;
+        height: 20px;
+        background: bar-color;
+        border-radius: 3px;
+        opacity: night-mode ? 0.7 : 1.0;
+    }
+
+    // Label.
+    Text {
+        x: 4px; y: 38px;
+        text: label;
+        font-size: 11px;
+        font-weight: 700;
+        color: night-mode ? #885500 : #cccccc;
+    }
+
+    // Value readout.
+    Text {
+        x: parent.width - 84px; y: 38px;
+        width: 80px;
+        text: round(value) + unit;
+        font-size: 12px;
+        font-weight: 700;
+        color: night-mode ? #aa6600 : #ffffff;
+        horizontal-alignment: right;
+    }
+}
+
+export component Indicator inherits Rectangle {
+    in-out property <bool> active: false;
+    in-out property <string> icon: "left";   // "left" | "right" | "high-beam"
+    in-out property <bool> night-mode: false;
+
+    width: 56px;
+    height: 44px;
+
+    property <bool> is-left: icon == "left";
+    property <bool> is-right: icon == "right";
+    property <bool> is-beam: icon == "high-beam";
+    property <color> active-color:
+        is-beam ? (night-mode ? #888844 : #00bfff)
+                : (night-mode ? #336622 : #00ff66);
+
+    Rectangle {
+        x: 4px; y: 4px;
+        width: parent.width - 8px;
+        height: parent.height - 8px;
+        background: active ? active-color : (night-mode ? #110a05 : #1a1a1a);
+        border-radius: 6px;
+        border-width: 1px;
+        border-color: active ? active-color.darker(0.3) : (night-mode ? #2a1a05 : #333333);
+        opacity: active ? 1.0 : 0.3;
+        animate opacity {
+            duration: 400ms;
+            iteration-count: -1;
+            direction: alternate;
+        }
+    }
+
+    Text {
+        x: 0; y: 0;
+        width: parent.width;
+        height: parent.height;
+        text: is-left ? "◀" : is-right ? "▶" : "≡";
+        font-size: 22px;
+        font-weight: 700;
+        color: active ? #000000 : (night-mode ? #553300 : #555555);
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component TripComputer inherits Rectangle {
+    in-out property <float> trip-distance: 0;       // km
+    in-out property <float> avg-speed: 0;           // km/h
+    in-out property <int> trip-time-secs: 0;
+    in-out property <bool> night-mode: false;
+
+    width: 220px;
+    height: 100px;
+    background: night-mode ? #0a0805 : #141414;
+    border-radius: 6px;
+    border-width: 1px;
+    border-color: night-mode ? #2a1a05 : #2a2a2a;
+
+    property <int> hours: floor(trip-time-secs / 3600);
+    property <int> mins: mod(floor(trip-time-secs / 60), 60);
+    property <int> secs: mod(trip-time-secs, 60);
+    property <string> hh: hours < 10 ? "0" + hours : "" + hours;
+    property <string> mm: mins < 10 ? "0" + mins : "" + mins;
+    property <string> ss: secs < 10 ? "0" + secs : "" + secs;
+
+    VerticalLayout {
+        padding: 8px;
+        spacing: 4px;
+        HorizontalLayout {
+            Text {
+                text: "TRIP";
+                font-size: 11px;
+                color: night-mode ? #885500 : #888888;
+                width: 60px;
+            }
+            Text {
+                text: round(trip-distance * 10) / 10 + " km";
+                font-size: 13px;
+                font-weight: 700;
+                color: night-mode ? #aa6600 : #ffffff;
+            }
+        }
+        HorizontalLayout {
+            Text {
+                text: "AVG";
+                font-size: 11px;
+                color: night-mode ? #885500 : #888888;
+                width: 60px;
+            }
+            Text {
+                text: round(avg-speed) + " km/h";
+                font-size: 13px;
+                font-weight: 700;
+                color: night-mode ? #aa6600 : #ffffff;
+            }
+        }
+        HorizontalLayout {
+            Text {
+                text: "TIME";
+                font-size: 11px;
+                color: night-mode ? #885500 : #888888;
+                width: 60px;
+            }
+            Text {
+                text: hh + ":" + mm + ":" + ss;
+                font-size: 13px;
+                font-weight: 700;
+                color: night-mode ? #aa6600 : #ffffff;
+            }
+        }
+    }
+}
+
+export component WarningBar inherits Rectangle {
+    in-out property <bool> overheat: false;
+    in-out property <bool> low-fuel: false;
+    in-out property <bool> overspeed: false;
+
+    width: 100%;
+    height: 28px;
+
+    HorizontalLayout {
+        alignment: center;
+        spacing: 24px;
+        padding: 4px;
+
+        Text {
+            text: "⚠ OVERHEAT";
+            font-size: 14px;
+            font-weight: 700;
+            color: #ff3333;
+            visible: overheat;
+            opacity: 1.0;
+            animate opacity {
+                duration: 500ms;
+                iteration-count: -1;
+                direction: alternate;
+            }
+        }
+        Text {
+            text: "⚠ LOW FUEL";
+            font-size: 14px;
+            font-weight: 700;
+            color: #ffaa00;
+            visible: low-fuel;
+            opacity: 1.0;
+            animate opacity {
+                duration: 600ms;
+                iteration-count: -1;
+                direction: alternate;
+            }
+        }
+        Text {
+            text: "⚠ SPEED";
+            font-size: 14px;
+            font-weight: 700;
+            color: #ff5555;
+            visible: overspeed;
+            opacity: 1.0;
+            animate opacity {
+                duration: 400ms;
+                iteration-count: -1;
+                direction: alternate;
+            }
+        }
+    }
+}
